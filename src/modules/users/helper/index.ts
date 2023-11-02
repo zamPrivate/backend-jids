@@ -1,22 +1,24 @@
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Exception } from '../../../core/utils';
-import moment from 'moment';
-import * as shortid from 'shortid';
 import { IUser } from '../../../core/database/models/user/user.model';
-import { userSubset, IAccessToken, IUserHelper } from '../dto/service.dto';
+import {
+	userSubset,
+	IAccessToken,
+	IUserHelper,
+	Dictionary
+} from '../dto/user.dto';
 import _ from 'lodash';
 import { UserModelType } from "../../../core/database/models/user/user.model";
-import { RoleModelType } from "../../../core/database/models/user/role.model";
+import CommonHelper from '../../common';
+import { CompanyModelType } from '../../../core/database/models/company/company.model';
 
-export default class UserHelper implements IUserHelper {
+export default class UserHelper extends CommonHelper implements IUserHelper {
 
-	constructor(
-		protected user: UserModelType,
-		protected role: RoleModelType,
-	) {
+	constructor(protected user: UserModelType, protected company: CompanyModelType) {
+		super();
 		this.user = user;
-		this.role = role;
+		this.company = company;
 	}
 
 	async hashPassword(password: string): Promise<string> {
@@ -28,72 +30,42 @@ export default class UserHelper implements IUserHelper {
 		const verifiedPassword: boolean = await bcryptjs.compare(password, hashedPassword);
 
 		if (!verifiedPassword) {
-			throw new Exception('Invalid credentials. Please check your email and password and try again.', 400);
+			throw new Exception('Invalid credentials. Please check your email and password and try again.', 404);
 		}
 	}
 
-	generateAccessToken(data: IAccessToken): string {
+	generateAccessToken(data: userSubset): IAccessToken {
 		const token = jwt.sign(
-			{ ...data, expireAt: '2hr' },
+			{ ...data, expireAt: '24hr' },
 			process.env.JWT_SECRET as string
 		);
-		return token;
+		return { token: token };
 	}
 
-	createCode(): string {
-		const code: string = shortid.generate().replace('_', '');
-		const expiry = moment(new Date(), "YYYY-MM-DD HH:mm:ss").add(1, 'month').format("YYYY-MM-DD HH:mm:ss");
-		return `${code}|${expiry}`;
-	};
-
-	extractCode(code: string): string { return code.split('|')[0]; };
-
-	getCodeExpiry(code: string): string { return code.split('|')[1] };
-
-	isCodeExpired(codeExpiryDate: string): boolean {
-		const currentTime = moment(new Date(), "YYYY-MM-DD HH:mm:ss").format("YYYY-MM-DD HH:mm:ss");
-		return moment(codeExpiryDate).isBefore(currentTime);
-	};
-
-	doesUserExist(user: IUser | null, email: string): void {
-		if (user) {
-			throw new Exception(`User with email: ${email} already exist`, 422);
-		}
+	userExist(userProperty: string): void {
+		throw new Exception(`User with property: ${userProperty} already exist`, 422);
 	}
 
-	createShortId(): string {
-		let id = shortid.generate();
-		return id.replace('-', '');
-	}
-
-	async createVerificationUrl(userId: string, code: string, path: string): Promise<string> {
-		/**
-		 * check if the current code has expired before attaching to link
-		 * If code has expired create a new one and update user data
-		*/
-		let verificationCode;
-		let codeExpiryDate = this.getCodeExpiry(code)
-		if (this.isCodeExpired(codeExpiryDate)) {
-			verificationCode = this.createCode();
-			await this.user.updateOne({ _id: userId }, { code: verificationCode });
-		} else {
-			verificationCode = code;
-		}
-		const app_url = process.env.APP_URL
-		return `${app_url}/${path}/${userId}-${this.createShortId()}-${this.extractCode(verificationCode)}-${this.createShortId()}`;
+	userDoesNotExist(userProperty: string): void {
+		throw new Exception(
+			`User not found. There's no account associated with this cred:${userProperty}. Please proceed to the registration page to create a new account.`,
+			404
+		);
 	}
 
 	getUserSubset(user: IUser): userSubset {
 		const pick = _.pick(user, [
-			'firstName',
-			'lastName',
+			'name',
 			'email',
 			'phoneNumber',
 			'imageUrl',
 			'imagePublicId',
-			'role',
 			'_id'
 		]);
 		return pick;
+	}
+
+	async updateUser(params: Dictionary, data: Dictionary): Promise<void> {
+		await this.user.updateOne(params, data);
 	}
 }

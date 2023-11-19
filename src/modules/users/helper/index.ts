@@ -3,15 +3,18 @@ import jwt from 'jsonwebtoken';
 import { Exception } from '../../../core/utils';
 import { IUser } from '../../../core/database/models/user/user.model';
 import {
-	userSubset,
+	TypeUserSubset,
 	IAccessToken,
 	IUserHelper,
-	Dictionary
+	Dictionary,
+	IUserId,
+	IUpdateUser,
 } from '../dto/user.dto';
 import _ from 'lodash';
 import { UserModelType } from "../../../core/database/models/user/user.model";
 import CommonHelper from '../../common';
 import { CompanyModelType } from '../../../core/database/models/company/company.model';
+import { Iinvitations } from '../../../core/database/models/invitations/invitations.model';
 
 export default class UserHelper extends CommonHelper implements IUserHelper {
 
@@ -34,7 +37,7 @@ export default class UserHelper extends CommonHelper implements IUserHelper {
 		}
 	}
 
-	generateAccessToken(data: userSubset): IAccessToken {
+	generateAccessToken(data: { id: 'string' }): IAccessToken {
 		const token = jwt.sign(
 			{ ...data, expireAt: '24hr' },
 			process.env.JWT_SECRET as string
@@ -42,30 +45,29 @@ export default class UserHelper extends CommonHelper implements IUserHelper {
 		return { token: token };
 	}
 
-	userExist(userProperty: string): void {
-		throw new Exception(`User with property: ${userProperty} already exist`, 422);
+	userExist(message: string): void {
+		throw new Exception(message, 422);
 	}
 
-	userDoesNotExist(userProperty: string): void {
-		throw new Exception(
-			`User not found. There's no account associated with this cred:${userProperty}. Please proceed to the registration page to create a new account.`,
-			404
-		);
+	userDoesNotExist(message: string): void {
+		throw new Exception(message, 404);
 	}
 
-	getUserSubset(user: IUser): userSubset {
+	getUserSubset(user: IUser): TypeUserSubset {
 		const pick = _.pick(user, [
 			'name',
 			'email',
 			'phoneNumber',
 			'imageUrl',
 			'imagePublicId',
-			'_id'
+			'_id',
+			'roles'
 		]);
 		return pick;
 	}
 
-	async updateUser(params: Dictionary, data: Dictionary): Promise<void> {
-		await this.user.updateOne(params, data);
+	async userUpdate(params: Dictionary, data: Dictionary): Promise<TypeUserSubset> {
+		const user = await this.user.updateOne(params, data);
+		return this.getUserSubset(await this.user.findOne(params));
 	}
 }

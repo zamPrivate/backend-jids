@@ -4,10 +4,10 @@ import shortid from 'shortid';
 import moment from 'moment';
 
 export interface IUser extends Document {
-    name: string
+    name?: string
     email: string
     password: string
-    phoneNumber: string
+    phoneNumber?: string
     code: string
     isVerified: boolean
     loginAttempts: number
@@ -35,8 +35,7 @@ export const UserSchema: Schema = new Schema<IUser>({
     },
     phoneNumber: {
         type: String,
-        required: true,
-        unique: true
+        required: false,
     },
     imageUrl: {
         type: String,
@@ -75,8 +74,7 @@ export const UserSchema: Schema = new Schema<IUser>({
     roles: [{
         role: {
             type: String,
-            enum: ['user', 'staff', 'admin', 'super-admin', 'manager'],
-            default: 'user'
+            enum: ['staff', 'admin', 'super-admin', 'manager'],
         },
         company: { type: Schema.Types.ObjectId, ref: 'Company' },
     }]

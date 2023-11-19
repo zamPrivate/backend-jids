@@ -1,40 +1,62 @@
-import { IUser } from "../../../core/database/models/user/user.model"
-import { Request, Response, NextFunction } from "express"
-import { IUpload } from "../../common/common.dto"
+import { IUser } from "../../../core/database/models/user/user.model";
+import { Request, Response, NextFunction } from "express";
+import { IUpload } from "../../common/common.dto";
+import { Types } from "mongoose";
+import { ICompany } from "../../../core/database/models/company/company.model";
 
 export interface IUserService {
-	signUp(data: IUserSignUp): Promise<userSubset>
+	signUp(data: IUserSignUp): Promise<TypeUserSubset>
+	createUser(userData: Dictionary, invitationId: string | null): Promise<IUser>
+	signUpByInvitation(data: IUserSignUp): Promise<TypeUserSubset>
 	signIn(data: IUserSignIn): Promise<IAccessToken>
 	verifyAccount(data: IVerifyAccount): Promise<{ userId: string }>
 	resetPassword(data: IUserEmail): Promise<void>
 	updatePassword(data: IUpdatePassword): Promise<void>
+	getUser(param: Dictionary): Promise<IGetUser>
+	updateUser(data: IUpdateUser): Promise<TypeUserSubset>
 }
 
 export interface IUserController {
 	signUp(req: Request, res: Response, next: NextFunction): void
 	signIn(req: Request, res: Response, next: NextFunction): void
 	verifyAccount(req: Request, res: Response, next: NextFunction): void
-	updatePassword(req: Request, res: Response, next: NextFunction): void
 	resetPassword(req: Request, res: Response, next: NextFunction): void
+	updatePassword(req: Request, res: Response, next: NextFunction): void
+	getUser(req: Request, res: Response, next: NextFunction): void
+	updateUser(req: Request, res: Response, next: NextFunction): void
 }
 
 export interface IUserHelper {
 	hashPassword(password: string): Promise<string>
 	comparePassword(password: string, hashedPassword: string): Promise<void>
-	generateAccessToken(data: userSubset): IAccessToken
-	userExist(email: string): void
-	userDoesNotExist(userProperty: string): void
-	getUserSubset(user: IUser): userSubset
-	updateUser(params: Dictionary, data: userSubset): void
+	generateAccessToken(data: { id: string }): IAccessToken
+	userExist(message: string): void
+	userDoesNotExist(message: string): void
+	getUserSubset(user: IUser): TypeUserSubset
+	userUpdate(params: Dictionary, data: TypeUserSubset): void
 }
 
 export interface IUserSignUp {
-	firstName: string
-	lastName: string
+	firstName?: string
+	lastName?: string
 	email: string
 	password: string
-	phoneNumber: string
+	phoneNumber?: string
 	profileImage?: IUpload | null
+	invitationId?: string
+}
+
+export interface IUpdateUser {
+	id: Types.ObjectId,
+	firstName?: string
+	lastName?: string
+	phoneNumber?: string
+	profileImage?: IUpload | null
+}
+
+export interface IGetUser {
+	user: TypeUserSubset,
+	companiesOwnedByUser: ICompany[]
 }
 
 export interface IUserSignIn {
@@ -43,22 +65,27 @@ export interface IUserSignIn {
 	phoneNumber?: string
 }
 
-export type userSubset = Pick<
+export type TypeUserSubset = Pick<
 	IUser,
 	'name' |
 	'email' |
 	'phoneNumber' |
 	'imageUrl' |
 	'imagePublicId' |
-	'_id'
+	'_id' |
+	'roles'
 >
 
 export interface IAccessToken {
 	token: string;
 }
 
+export interface IDecodedToken {
+	id: string;
+}
+
 export interface IVerifyAccount {
-	userId: string
+	userId: Types.ObjectId,
 	code: string
 }
 
@@ -71,7 +98,7 @@ export interface IUserEmail {
 }
 
 export interface IUpdatePassword {
-	userId: string,
+	userId: Types.ObjectId,
 	code: string
 	newPassword: string
 }
